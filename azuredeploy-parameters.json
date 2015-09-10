@@ -1,18 +1,18 @@
 {
     "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
-    "contentVersion": "1.0.1.0",
+    "contentVersion": "1.0.0.0",
     "parameters": {
-        "newStorageAccountName": {
-            "value": "uniqueStorageAccount"
+        "RG_Prod_str": {
+            "value": "prodstorage"
         },
-        "adminUsername": {
-            "value": "username"
+        "RG_QA_str": {
+            "value": "qastorage"
         },
-        "adminPassword": {
-            "value": "password"
+        "RG_DevTst_str": {
+            "value": "devtststorage"
         },
-        "dnsNameForPublicIP": {
-            "value": "publicipname"
+        "RG_Core_stor": {
+			"value": "corestorage"
         }
    }
 }
