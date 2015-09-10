@@ -13,12 +13,6 @@
         },
         "dnsNameForPublicIP": {
             "value": "publicipname"
-        },
-        "scriptFile": {
-            "value": "scripFileinaBlobAccount"
-        },
-        "scriptName": {
-            "value": "scriptName"
         }
    }
 }
