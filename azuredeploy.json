@@ -2,65 +2,156 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "RG_Prod_str": {
+		"location" : {
+			"type" : "string",
+			"defaultValue" : "West US",
+			"allowedValues" : [
+				"East US",
+				"West US",
+				"South Central US"],
+			"metadata" : {
+				"description" : "This is the region where the resources will be created"
+			},
+		"adminUsername": {
             "type": "string",
             "metadata": {
-                "description": "Unique DNS Name for the Storage Account where the Production Virtual Machine's disks will be placed."
+               "description": "Username for the Virtual Machine."
+            }
         },
-        "RG_QA_str": {
-            "type": "string",
+        "adminPassword": {
+            "type": "securestring",
             "metadata": {
-                "description": "Unique DNS Name for the Storage Account where the QA Virtual Machine's disks will be placed."
-        },
-        "RG_DevTst_str": {
-            "type": "string",
-            "metadata": {
-                "description": "Unique DNS Name for the Storage Account where the DevTst Virtual Machine's disks will be placed."
-        },
-        "RG_Core_stor": {
-            "type": "string",
-            "metadata": {
-                "description": "Unique DNS Name for the Storage Account where the Core Virtual Machine's disks will be placed."
+                "description": "Password for the Virtual Machine."
+            }
         }
-   },
+    },
+		"VMsize-WFE":{
+            "type": "string",		
+			"defaultValue" : "Standard_A2",
+			"allowedValues" : [
+				"Standard_A2"
+				]
+	},
+		"VMsize-App":{
+            "type": "string",		
+			"defaultValue" : "Standard_A2",
+			"allowedValues" : [
+				"Standard_A2"
+				]
+	},
+		"VMsize-DB":{
+            "type": "string",		
+			"defaultValue" : "Standard_A2",
+			"allowedValues" : [
+				"Standard_A2"
+				]
+        }
+	},
     "variables": {
-        "storageAccountType": "Standard_LRS"
+		"RG_Prod_str": "storactprd",
+		"RG_QA_str": "storactqa",
+		"RG_DevTst_str": "storactdevtst",
+		"RG_Core_str": "storactcore",
+
+		"virtualNetworkName4" : "Vnet-Prd",
+		"virtualNetworkName3" : "Vnet-QA",		
+		"virtualNetworkName2" : "Vnet-DevTst",
+		"virtualNetworkName1" : "Vnet-Core",
+		
+		"PubIPName-Prd": "LB-Prd",
+        "publicIPAddressType-Prd": "Dynamic",
+        "dnsNameForPublicIP-Prd": "App-Prd",		
+
+		"VMname4-01": "Web01-Prd",
+        "imagePublisher": "MicrosoftWindowsServer",
+        "imageOffer": "WindowsServer",
+		"windowsOSVersion": "2012-R2-Datacenter",
+        "OSDiskName": "osdiskforwindowssimple",
+        "nic01-prd": "Prd-Web01-Nic",
+        "sub4-wfe": "Sub-Prd-WFE",
+        "vmStorageAccountContainerName": "vhds",
+        "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName4'))]",
+        "subnetRef4-wfe": "[concat(variables('vnetID'),'/subnets/',variables('sub4-wfe'))]"
     },
     "resources": [
         {
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[parameters('RG_Prod_str')]",
+			"apiVersion" : "2015-05-01-preview",
+			"type" : "Microsoft.Network/publicIPAddresses",
+			"name" : "[variables('PubIPName-Prd')]",
+			"location" : "[parameters('location')]",
+			"properties" : {
+				"publicIPAllocationMethod" : "[variables('PrdPublicIPAddressType')]",
+				"dnsSettings" : {"domainNameLabel" : "[variables('dnsNameForPublicIP-Prd')]"				}
+			}
+		}, 
+		{
             "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[variables('nic01-prd')]",
             "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Network/publicIPAddresses/', variables('PubIPName-Prd'))]",
+                "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName4'))]"
+            ],
             "properties": {
-                "accountType": "[variables('storageAccountType')]"
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('PubIPName-Prd'))]"
+                            },
+                            "subnet": {
+                                "id": "[variables('subnetRef4-wfe')]"
+                            }
+                        }
+                    }
+                ]
             }
         },
         {
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[parameters('RG_QA_str')]",
             "apiVersion": "2015-05-01-preview",
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[variables('VMname4-01')]",
             "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Storage/storageAccounts/', variable('RG_Prd_str'))]",
+                "[concat('Microsoft.Network/networkInterfaces/', variables('nic01-prd'))]"
+            ],
             "properties": {
-                "accountType": "[variables('storageAccountType')]"
+                "hardwareProfile": {
+                    "vmSize": "[parameters('vmSize-wfe')]"
+                },
+                "osProfile": {
+                    "computername": "[variables('VMname4-01')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "[variables('imagePublisher')]",
+                        "offer": "[variables('imageOffer')]",
+                        "sku" : "[variables('windowsOSVersion')]",
+                        "version":"latest"
+                    },
+                   "osDisk" : {
+                        "name": "osdisk",
+                        "vhd": {
+                            "uri": "[concat('http://',variables('RG_Prd_str'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
+                        },
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nic01-prd'))]"
+                        }
+                    ]
+                }
             }
-        },
-        {
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[parameters('RG_DevTst_str')]",
-            "apiVersion": "2015-05-01-preview",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "accountType": "[variables('storageAccountType')]"
-            }
-        },        {
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[parameters('RG_Core_str')]",
-            "apiVersion": "2015-05-01-preview",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "accountType": "[variables('storageAccountType')]"
-            }
-        }        
+        }
     ]
 }
